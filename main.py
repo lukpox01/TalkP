@@ -1,7 +1,9 @@
 import curses.textpad
 import logging
+import os
 import socket
 import threading
+import time
 from curses import *
 
 
@@ -15,9 +17,12 @@ class Chat:
         self.Y, self.X = self.stdscr.getmaxyx()
         self.pad = newpad(self.Y ** 2, self.X - 2)
         self.stdscr.keypad(1)
+        self.end = False
         self.thread = threading.Thread(target=self.receive_message)
         self.thread.start()
 
+    def is_end_chat(self):
+        return self.end
     def show_massages(self):
         self.stdscr.refresh()
         if len(self.messages) > self.Y - 5:
@@ -47,21 +52,32 @@ class Chat:
                 self.send_message(message)
             else:
                 self.send_message("!EXIT")
+                self.end = True
                 break
             self.stdscr.clear()
 
     def send_message(self, message):
-        self.client_socket.sendall(message.encode('utf-8'))
+        if message:
+            self.client_socket.sendall(message.encode('utf-8'))
 
     def receive_message(self):  # -----------------------------------
         initcolors()
         logger.debug("Received message start")
         while True:
-            try:
-                room_name = self.client_socket.recv(1024).decode('utf-8')
-                message = self.client_socket.recv(1024)
-            except ConnectionAbortedError:
-                break
+            if self.is_end_chat():
+                logger.debug("Received message end")
+                self.client_socket.sendall("END".encode('utf-8'))
+                time.sleep(0.5)
+                end = self.client_socket.recv(1024).decode('utf-8')
+                if end == "END":
+                    break
+            # try:
+            room_name = self.client_socket.recv(1024).decode('utf-8')
+            time.sleep(0.1)
+            message = self.client_socket.recv(1024)
+
+            # except ConnectionAbortedError:
+            #     break
             logger.debug(f"{room_name}-{self.room_name}: {message.decode('utf-8')}")
             if message and room_name == self.room_name:
                 color, message = message.decode('utf-8')[:2], message.decode('utf-8')[2:]
@@ -261,6 +277,7 @@ def main(stdscr):
     curses.init_pair(1, curses.COLOR_RED, 0)
     logger.debug("Start main")
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # client_socket.connect(('139.162.137.189', 8888))
     client_socket.connect(('139.162.137.189', 8888))
 
     while True:
@@ -294,11 +311,15 @@ def main(stdscr):
 
                 print_logo(stdscr)
                 roomname = get_room_name(stdscr, "to create")
+                if not roomname:
+                    continue
                 client_socket.sendall(roomname.encode('utf-8'))
                 ok = client_socket.recv(1024).decode('utf-8')
+                logger.debug(f"ok_create {ok}")
                 stdscr.clear()
                 stdscr.addstr(stdscr.getmaxyx()[0] // 2 + 5, stdscr.getmaxyx()[1] // 2 - 10, ok, curses.color_pair(1))
                 if ok == "false":
+                    logger.debug("false_create")
                     break
             c = Chat(client_socket, stdscr, roomname)
             c.show()
@@ -312,11 +333,15 @@ def main(stdscr):
 
                 print_logo(stdscr)
                 roomname = get_room_name(stdscr, "to join")
+                if not roomname:
+                    continue
                 client_socket.sendall(roomname.encode('utf-8'))
                 ok = client_socket.recv(1024).decode('utf-8')
+                logger.debug(f"ok_join {ok}")
                 stdscr.clear()
                 stdscr.addstr(stdscr.getmaxyx()[0] // 2 + 5, stdscr.getmaxyx()[1] // 2 - 10, ok, curses.color_pair(1))
                 if ok == "false":
+                    logger.debug("false_join")
                     break
 
             c = Chat(client_socket, stdscr, roomname)

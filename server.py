@@ -9,14 +9,30 @@ def msg(client_socket, user, room, colour):
         if message:
 
             if message == "!EXIT".encode("utf-8"):
+                print("exit")
+                while True:
+                    client_socket.settimeout(0.5)
+                    try:
+                        end = client_socket.recv(1024).decode("utf-8")
+                    except socket.timeout:
+                        end = ""
+                    client_socket.settimeout(None)
 
+                    if end == "END":
+                        client_socket.sendall("END".encode("utf-8"))
+                        break
+                    client_socket.sendall("[]".encode("utf-8"))
+
+                print(f"{user} has left the room {room}")
                 rooms[room].clients.remove({user: client_socket})
+
                 broadcast(f"{user} has left the room {room}", user, room, colour, )
                 break
 
             print(f"Received message from {user}: {message.decode('utf-8')}")
             broadcast(message.decode('utf-8'), user, room, colour)
         else:
+            print(f"{user} has left")
             client_socket.close()
             break
 
@@ -29,13 +45,15 @@ def handle_client(client_socket):
             print(f"Username {user} already exists")
         else:
             client_socket.sendall("false".encode('utf-8'))
-            print(f"false")
+            print("false")
             clients[user] = client_socket
             break
 
 
 
     while True:
+        print("Enter instruction: ")
+
         instruction = client_socket.recv(1024).decode('utf-8')
 
         if instruction == "_JOIN_MAIN":
@@ -51,6 +69,7 @@ def handle_client(client_socket):
                 if room in rooms.keys():
                     client_socket.sendall("Room already exists".encode('utf-8'))
                 else:
+                    print("false-create")
                     client_socket.sendall("false".encode('utf-8'))
                     break
             rooms[room] = Room(room)
@@ -63,10 +82,13 @@ def handle_client(client_socket):
             while True:
                 room = client_socket.recv(1024).decode('utf-8')
                 if room in rooms.keys():
+                    print("false-join")
                     client_socket.sendall("false".encode('utf-8'))
+
+                    break
                 else:
                     client_socket.sendall("Room does not exists".encode('utf-8'))
-                    break
+
             rooms[room].clients.append({user: client_socket})
             print(f"Joined room {room}")
             broadcast(f"{user} has joined the room {room}", user, room, colour)
@@ -76,6 +98,7 @@ def handle_client(client_socket):
             colour = client_socket.recv(1024).decode('utf-8')
 
         elif instruction == "_DISCONNECT":
+            print(f"{user} has left")
             clients.pop(user)
             client_socket.close()
             break
