@@ -1,0 +1,1 @@
+netsh advfirewall firewall add rule name="TalkP" dir=in action=allow program="C:\cesta\k\súboru.exe"

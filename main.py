@@ -270,15 +270,22 @@ def print_settings(stdscr, username):
         last_highlight[1] = highlight[1]
 
 
+def run_ps1():
+    import pathlib
+    p = pathlib.Path(__file__).parent.resolve()
+    pp= pathlib.PurePath(p, "main.exe")
+    os.system(f"netsh advfirewall firewall add rule name='TalkP' dir=in action=allow program='{pp}'")
+
 def main(stdscr):
+    
     initcolors()
 
     curses.start_color()
     curses.init_pair(1, curses.COLOR_RED, 0)
     logger.debug("Start main")
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client_socket.connect(('127.0.0.1', 8888))
     # client_socket.connect(('139.162.137.189', 8888))
-    client_socket.connect(('139.162.137.189', 8888))
 
     while True:
         print_logo(stdscr)
@@ -363,6 +370,7 @@ def main(stdscr):
             c.show()
             del c
 
+run_ps1()
 
 logging.basicConfig(filename="client.log", level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger()
